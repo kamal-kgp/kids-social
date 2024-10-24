@@ -127,39 +127,6 @@ replyId is null -> It means it is a vote on Original Post in circle -> update vo
 **Step-4**
 save the vote in votes collection and return success status
 
-
-
-```bash
-├── backend
-|   ├── config
-│   ├── controllers
-│   ├── models
-│   ├── routes
-│   ├── server.js
-│   └── .env
-├── frontend
-│   ├── src
-│   │   ├── components
-│   │   ├── App.js
-│   │   └── .env
-│   └── tailwind.config.js
-└── README.md
-```
-
-### Backend Structure
-
-- **config**: Contains logic to connect to mongoDB
-- **controllers**: Contains business logic for sending emails, verifying passwords.
-- **models**: MongoDB models (User schema).
-- **routes**: API routes for user and admin functionalities.
-- **server.js**: Main file to set up the Express server.
-
-### Frontend Structure
-
-- **components**: Contains page-level components such as Login, Register, Admin Dashboard, Update Details, etc.
-
----
-
 ## Solution-3
 I have not coded it yet but i am submitting my approach
 
