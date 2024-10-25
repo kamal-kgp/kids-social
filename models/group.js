@@ -9,6 +9,7 @@ const groupSchema = new mongoose.Schema({
         type: String,
         trim: true, 
         required: true,
+        unique: true
     },
     groupName: {
         type: String,
@@ -22,6 +23,16 @@ const groupSchema = new mongoose.Schema({
             required: false
         }
     ],
+    createdBy: { // useful for derived circles (created by parents)
+        type: mongoose.Schema.Type.ObjectId,
+        ref: "Parent",
+        required: false
+    }, 
+    relatedTo:{ // useful for derived circles (created by parents), it reference to the root node under which this group is created 
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Group",
+        required: false
+    },
     createdOn: {
         type: Date,
         default: Date.now(),

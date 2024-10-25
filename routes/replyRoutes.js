@@ -7,25 +7,26 @@ const Post = require("../models/post");
 
 const router = express.Router();
 
-// Create a reply
+// API to Create a reply
 router.post("/create", async (req, res) => {
+  // start transaction session to ensure atomicity
   const session = await mongoose.startSession();
-  try {
-    session.startTransaction();
+  session.startTransaction();
 
+  try {
     const replyData = req.body;
     const { parentId, groupId, postId } = replyData;
 
-    const group = await Group.findOne({ _id: groupId });
+    // check if parent who is creating reply is member of group/circle
+    const group = await Group.findOne({ _id: groupId }).session(session);
     if (
       !group ||
       !group.members.find((id) => id.toString() === parentId.toString())
     ) {
-      res
-        .status(403)
-        .json({ message: "You are not authorized to reply in this circle" });
+      throw new Error("You are not authorized to reply in this circle") ;
     }
 
+    // update original post's data (for ensuring creation of one thread only) and count of total replies in thread if post exist
     const updatedPost = await Post.findByIdAndUpdate(
       postId,
       { isThreadCreated: true, $inc: { totalReplies: 1 } },
@@ -36,18 +37,17 @@ router.post("/create", async (req, res) => {
       throw new Error("Post not found");
     }
 
+    // create and save the reply in replies collection
     const reply = new Reply(replyData);
     await reply.save({ session });
 
     await session.commitTransaction();
-    session.endSession();
-
     res.status(201).json({ message: "reply created successfully" });
   } catch (error) {
     await session.abortTransaction();
-    session.endSession();
-
     res.status(400).json({ error: error.message });
+  } finally {
+    session.endSession();
   }
 });
 

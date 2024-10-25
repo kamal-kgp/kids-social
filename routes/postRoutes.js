@@ -5,12 +5,15 @@ const Post = require("../models/post");
 
 const router = express.Router();
 
-// Create a new post
+// API to create a new post
 router.post("/create", async (req, res) => {
   try {
     const postData = req.body;
     const { parentId, groupId } = postData;
 
+    // condition-1 : check if group not exist
+    // condition-2 : if group exist then check parent is not member of group
+    // if one of above condition is true then return error
     const group = await Group.findOne({ _id: groupId });
     if (
       !group ||
@@ -18,11 +21,12 @@ router.post("/create", async (req, res) => {
         (memberId) => memberId.toString() === parentId.toString()
       )
     ) {
-      res
+      return res
         .status(403)
         .json({ message: "You are not authorized to post in this circle" });
     }
 
+    // finally save post in posts collection
     const post = new Post(postData);
     await post.save();
 

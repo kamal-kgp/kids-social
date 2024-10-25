@@ -1,54 +1,64 @@
 const express = require("express");
+const mongoose = require("mongoose");
 
-const Group = require("../models/group"); 
+const Group = require("../models/group");
 const Reply = require("../models/reply");
 const Post = require("../models/post");
 const Vote = require("../models/vote");
 
 const router = express.Router();
 
-// Create a new parent
+// API to submit vote
 router.post("/create", async (req, res) => {
+  // start transaction session to ensure atomicity
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const voteData = req.body;
     const { groupId, parentId, replyId, postId, voteType } = voteData;
 
-    const group = await Group.findOne({ _id: groupId });
-    if (!group || !group.members.find((id) => id.toString() === parentId.toString())) {
-      res
-        .status(403)
-        .json({ message: "You are not authorized to react in this circle" });
+    // check if voter is member of group
+    const group = await Group.findOne({ _id: groupId }).session(session);
+    if (
+      !group ||
+      !group.members.find((id) => id.toString() === parentId.toString())
+    ) {
+      throw new Error("You are not authorized to react in this circle") ;
     }
 
-    const post = await Post.findOne({ _id: postId }); 
+    // check if post exist or not in circle/group
+    const post = await Post.findOne({ _id: postId }).session(session);
     if (!post) {
-      res
-        .status(404)
-        .json({ message: "post not found" });
+      throw new Error("post not found") ;
     }
 
-    if(replyId){
-        const reply = await Reply.findOne({_id: replyId});
-        if(!reply){
-            res.status(404).json({message: "reply not found"})
-        }
+    // replyId != null => vote is for reply message with  _id = replyId
+    if (replyId) {
+      const reply = await Reply.findOne({ _id: replyId }).session(session);
+      if (!reply) {
+        throw new Error("reply not found") ;
+      }
 
-        reply.votes[voteType] += 1 ;
-        await reply.save() ;
+      reply.votes[voteType] += 1;
+      await reply.save({ session });
+    } else {
+      // replyId === null => vote is for original post in circle/group with _id = postId
+      post.votes[voteType] += 1;
+      await post.save({ session });
     }
 
-    if(!replyId){
-        post.votes[voteType] += 1;
-        await post.save() ;
-    }
+    // create vote and save in votes collection
+    const vote = new Vote(voteData);
+    await vote.save({ session });
 
-    const vote = new Vote(voteData) ;
-    await vote.save() ;
-    
+    await session.commitTransaction();
     res.status(201).json({ message: "vote created successfully" });
   } catch (error) {
+    await session.abortTransaction();
     res.status(400).json({ error: error.message });
-    console.error(error);
+  } finally {
+    session.endSession();
   }
 });
 
