@@ -201,19 +201,8 @@ router.get("/discover-groups/:id", async (req, res) => {
     }
 
     // retrieve all the derived potential circles for this parent from groups collection using standard groups _id
-    const groupQueries = stdGroupsIDs.map((id) =>
-      Group.find({ relatedTo: id })
-        .select("_id groupName createdBy relatedTo")
-        .session(session)
-    );
-    const result = await Promise.allSettled(groupQueries);
-
-    const discoveredGroups = result
-      .filter((result) => result.status === "fulfilled")
-      .map((result) => result.value)
-      .flat();
-
-    console.log("discoveredGroups: ", discoveredGroups);
+    const discoveredGroups = await Group.find({ relatedTo: {$in: stdGroupsIDs }}).select("_id groupName createdBy relatedTo").session(session) 
+    // console.log("discoveredGroups: ", discoveredGroups);
 
     // commit transaction and send discoveredGroups in response
     await session.commitTransaction();
