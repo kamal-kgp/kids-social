@@ -9,7 +9,9 @@ const groupSchema = new mongoose.Schema({
         type: String,
         trim: true, 
         required: true,
-        unique: true
+        index: {
+            unique: true
+        }
     },
     groupName: {
         type: String,
@@ -24,7 +26,7 @@ const groupSchema = new mongoose.Schema({
         }
     ],
     createdBy: { // useful for derived circles (created by parents)
-        type: mongoose.Schema.Type.ObjectId,
+        type: mongoose.Schema.Types.ObjectId,
         ref: "Parent",
         required: false
     }, 
