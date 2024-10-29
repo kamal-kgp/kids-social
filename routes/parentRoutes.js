@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const Parent = require("../models/parent");
 const ParentGroup = require("../models/parentGroup");
 const Group = require("../models/group");
+const parentGroup = require("../models/parentGroup");
 
 const router = express.Router();
 
@@ -18,10 +19,12 @@ router.post("/create", async (req, res) => {
     const { school, classNum, section, address } = parentData;
 
     // create groupTypeId to identify same group/circle
-    const schoolId = school; //assuming school name is unique (but we can use school reg number too) , circle = DPS school
+    const schoolId = school.toLowerCase().replace(/\s/g, ""); //assuming school name is unique (but we can use school reg number too) , circle = DPS school
     const classId = `${schoolId}#${classNum}`; // for circle = DPS school, class-1
     const sectionId = `${classId}#${section}`; // for circle = DPS school, class-1, cection-F
-    const societyId = `${address?.zipCode}#${address?.societyCommunity}`; // for circle = Brigade society
+    const societyId = `${address?.zipCode}#${address?.societyCommunity
+      .toLowerCase()
+      .replace(/\s/g, "")}`; // for circle = Brigade society
     const schoolSocietyId = `${schoolId}#${societyId}`; // for circle = DPS school, brigade society
 
     // create and save parent document in parents collection
@@ -127,32 +130,43 @@ router.put("/change-groups/:id", async (req, res) => {
     // find groups using classGroupId and sectionGroupId
     // then remove parent as member from members array of both groups
     if (classGroupId) {
-      await Group.findByIdAndUpdate(classGroupId, {
-        $pull: { members: parentId },
-      });
+      await Group.findByIdAndUpdate(
+        classGroupId,
+        {
+          $pull: { members: parentId },
+        },
+        { session }
+      );
     }
     if (sectionGroupId) {
-      await Group.findByIdAndUpdate(sectionGroupId, {
-        $pull: { members: parentId },
-      });
+      await Group.findByIdAndUpdate(
+        sectionGroupId,
+        {
+          $pull: { members: parentId },
+        },
+        { session }
+      );
     }
 
     // made new groupTypeId using new class and section
     // groupTypeId is used to identify standard groups and check if these groups already exist or not (groups created by application) ?
-    const newClassId = `${parent.school}${newClass}`;
-    const newSectionId = `${newClassId}${newSection}`;
+    const newClassId = `${parent.school
+      .toLowerCase()
+      .replace(/\s/g, "")}#${newClass}`;
+    const newSectionId = `${newClassId}#${newSection}`;
 
     // create or find groups according to new groupTypeId
     // add parent to those groups as member
-    const newClassGroupId = createOrFindGroup(
+    const newClassGroupId = await createOrFindGroup(
       newClassId,
       `${parent.school}, class-${newClass}`,
       parentId,
       session
     );
-    const newSectionGroupId = createOrFindGroup(
+    const newSectionGroupId = await createOrFindGroup(
       newSectionId,
       `${parent.school}, class-${newClass}, section-${newSection}`,
+      parentId,
       session
     );
 
@@ -162,6 +176,35 @@ router.put("/change-groups/:id", async (req, res) => {
     await parentGroup.save({ session });
 
     await session.commitTransaction();
+    res.status(201).json({ message: "group changed succesfully" });
+  } catch (error) {
+    await session.abortTransaction();
+    res.status(400).json({ message: error.message });
+  } finally {
+    session.endSession();
+  }
+});
+
+// API to create derived groups
+router.post("/create-derived-group", async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    const groupTypeId = new mongoose.Types.ObjectId();
+    const derivedGroup = new Group({
+      ...req.body,
+      groupTypeId: groupTypeId,
+    });
+    await derivedGroup.save({ session });
+
+    await parentGroup.updateOne(
+      { parentId: req.body.createdBy },
+      { $push: { other: derivedGroup._id } },
+      { session }
+    );
+
+    await session.commitTransaction();
+    res.status(201).json({ message: "derived group created succesfully" });
   } catch (error) {
     await session.abortTransaction();
     res.status(400).json({ message: error.message });
@@ -201,7 +244,11 @@ router.get("/discover-groups/:id", async (req, res) => {
     }
 
     // retrieve all the derived potential circles for this parent from groups collection using standard groups _id
-    const discoveredGroups = await Group.find({ relatedTo: {$in: stdGroupsIDs }}).select("_id groupName createdBy relatedTo").session(session) 
+    const discoveredGroups = await Group.find({
+      relatedTo: { $in: stdGroupsIDs },
+    })
+      .select("_id groupName createdBy relatedTo")
+      .session(session);
     // console.log("discoveredGroups: ", discoveredGroups);
 
     // commit transaction and send discoveredGroups in response
@@ -221,7 +268,7 @@ router.get("/discover-groups/:id", async (req, res) => {
  * If the group does not exist, creates a new group with the given groupTypeId and groupName,
  * adds the parentId to the group's members, and returns the new group's _id.
  */
-const createOrFindGroup = async (groupTypeId, groupName, parentId, session) => {
+const createOrFindGroup = async (groupTypeId, groupName, parentId, session, retries = 3) => {
   try {
     const group = await Group.findOne({ groupTypeId: groupTypeId }).session(
       session
@@ -243,10 +290,10 @@ const createOrFindGroup = async (groupTypeId, groupName, parentId, session) => {
       return group._id;
     }
   } catch (error) {
-    if (error.code === 11000) {
+    if (error.code === 11000 && retries > 0) {
       // If the group already exists, try again
       // This can happen if multiple requests are made to create the same group in parallel
-      await createOrFindGroup(groupTypeId, groupName, parentId, session);
+      await createOrFindGroup(groupTypeId, groupName, parentId, session, retries - 1);
     } else {
       throw new Error(error);
     }

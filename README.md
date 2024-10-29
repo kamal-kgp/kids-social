@@ -8,6 +8,7 @@
 - [Solution-4](#Solution-4)
 - [Run-backend](#Run-backend)
 - [Improvements](#Improvements)
+- [Curl-requests](#curl-requests)
 
 ---
 
@@ -218,3 +219,144 @@ npm start
 ## Improvements 
 1. Implement other possible crud apis 
 3. Improve error handelling
+
+
+---
+
+
+## Curl-requests 
+
+#### creating parents 
+1. send all details
+```
+curl -X POST http://localhost:5001/api/parent/create \
+-H "Content-Type: application/json" \
+-d '{
+    "parentName": "parent-1",
+    "school": "DPS School",
+    "classNum": "1",
+    "section": "F",
+    "schoolIdCard": "base64 string of id card",
+    "address": {
+        "societyCommunity": "Brigade society",
+        "city": "indore",
+        "state": "Madhyapradesh",
+        "country": "India",
+        "zipCode": "345678"
+    }
+}'
+```
+
+2.  parent-2, Not sending address 
+```
+curl -X POST http://localhost:5001/api/parent/create \
+-H "Content-Type: application/json" \
+-d '{
+    "parentName": "parent-2",
+    "school": "DPS School",
+    "classNum": "1",
+    "section": "F",
+    "schoolIdCard": "base64 string of id card"
+}'
+```
+
+3. send all details but different section
+```
+curl -X POST http://localhost:5001/api/parent/create \
+-H "Content-Type: application/json" \
+-d '{
+    "parentName": "parent-3",
+    "school": "DPS School",
+    "classNum": "1",
+    "section": "A",                 
+    "schoolIdCard": "base64 string of id card",
+    "address": { 
+        "societyCommunity": "Brigade society",
+        "city": "indore",
+        "state": "Madhyapradesh",
+        "country": "India",
+        "zipCode": "345678"
+    }
+}'
+```
+
+#### creating post 
+```
+curl -X POST http://localhost:5001/api/post/create \
+-H "Content-Type: application/json" \
+-d '{
+    "parentId": "",
+     "groupId": "",
+     "content": {
+        "message": "when is annual function"
+     }
+}'
+```
+
+#### creating reply of above post in thread 
+```
+curl -X POST http://localhost:5001/api/reply/create \
+-H "Content-Type: application/json" \
+-d '{
+    "parentId": "",
+    "postId": "",
+     "groupId": "",
+     "content": {
+        "message": "i heard that it is on 13 december"
+     }
+}'
+```
+
+#### create vote  
+1. on original post
+```
+curl -X POST http://localhost:5001/api/vote/create \
+-H "Content-Type: application/json" \
+-d '{
+    "parentId": "",
+    "postId": "",
+    "groupId": "",
+    "voteType": "up"
+}'
+```
+
+2. on reply of post 
+```
+curl -X POST http://localhost:5001/api/vote/create \
+-H "Content-Type: application/json" \
+-d '{
+    "parentId": "",
+    "postId": "",
+    "groupId": "",
+    "replyId": "", 
+    "voteType": "down"
+}'
+```
+
+#### kids changing grade 
+```
+curl -X PUT http://localhost:5001/api/parent/change-groups/<parentId> \
+-H "Content-Type: application/json" \
+-d '{
+    "newClass": "2",
+    "newSection": "A"
+}'
+```
+
+#### create derived group 
+```
+curl -X POST http://localhost:5001/api/parent/create-derived-group \
+-H "Content-Type: application/json" \
+-d '{
+    "isStandardGroup": false,
+    "groupName": "Brigade society, bus-92",
+    "members": [""],
+    "createdBy": "",
+    "relatedTo": ""
+}'
+```
+
+#### discover groups 
+```
+curl -X GET http://localhost:5001/api/parent/discover-groups/<_id of parent-2>
+```

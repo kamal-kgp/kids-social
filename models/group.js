@@ -1,7 +1,7 @@
 const mongoose = require("mongoose") ;
 
 const groupSchema = new mongoose.Schema({
-    isStandardGroup: {
+    isStandardGroup: { 
         type: Boolean,
         required: true
     },
